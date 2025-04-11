@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user
+  namespace: roboshop
+data:
+  MONGO: "true"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user
+  namespace: roboshop
+  labels:
+    app: user
+    project: roboshop
+    tier: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels: #these labels are used to find the pods
+      app: user
+      project: roboshop
+      tier: app
+  template:
+    metadata:
+      labels: #these are pod labels
+        app: user
+        project: roboshop
+        tier: app
+    spec:
+      containers: 
+      - name: user
+        image: "{{ .Values.deployment.imageURL }}:{{ .Values.deployment.imageVersion }}"
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: user
+---
+
+apiVersion: v1
+kind: Service
+metadata: 
+  name: user
+  namespace: roboshop
+spec:
+  selector:
+    app: user
+    project: roboshop
+    tier: app
+  ports:
+  - protocol: TCP
+    port: 8080 #service-port
+    targetPort: 8080 #container-port
+
+---
+
+apiVersion: autoscalling/v1
+kind: HorizontalPodAutoScaler
+metadata:
+  name: user
+  namespace: roboshop
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: user
+  minReplicas:
+  maxReplicas:
+  targetCPUUtilizationPercentage: "{{ .Values.hpa.cpuUtilization }}" # usually 75 in real environment
